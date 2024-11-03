@@ -4,6 +4,8 @@ import {
   Inbox,
   Search,
   Settings,
+  Swords,
+  Utensils,
   UtensilsCrossed,
 } from "lucide-react";
 import Link from "next/link";
@@ -30,9 +32,14 @@ const items = [
     icon: Home,
   },
   {
+    title: "Scrims",
+    url: "/scrims",
+    icon: Swords,
+  },
+  {
     title: "Food",
     url: "/food",
-    icon: UtensilsCrossed,
+    icon: Utensils,
   },
   {
     title: "Calendar",
@@ -47,7 +54,7 @@ export function AppSidebar() {
       <SidebarContent className="bg-zinc-950">
         <SidebarGroup>
           <SidebarGroupLabel className="text-xl font-semibold text-white">
-            Nigma Dashboard
+            Team Dashboard
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -68,9 +75,6 @@ export function AppSidebar() {
           <button>
             <SignOutButton />
           </button>
-        </div>
-        <div className="absolute inset-x-36 bottom-2 whitespace-nowrap px-0 text-xs text-white">
-          <h4>© Daniel Dickhoff</h4>
         </div>
       </SidebarContent>
     </Sidebar>

@@ -21,41 +21,39 @@ import {
 const updates = [
   {
     id: 1,
-    title: "New Project Management Features Released",
-    content:
-      "We've just launched several new features to improve project tracking and team collaboration. These include custom dashboards, enhanced reporting, and real-time notifications.",
+    title: "New Content Day",
+    content: "It will be fun.",
     author: {
-      name: "Sarah Johnson",
+      name: "Jessie",
       avatar: "/api/placeholder/32/32",
-      initials: "SJ",
+      initials: "J",
     },
-    category: "Feature Update",
+    category: "Content",
     timestamp: "2024-10-30T09:00:00Z",
   },
   {
     id: 2,
     title: "Team Meeting Schedule Changes",
-    content:
-      "Starting next week, our daily standups will move to 10 AM EST to better accommodate team members across different time zones.",
+    content: "Nico went missing. Meeting for tomorrow delayed.",
     author: {
-      name: "Mike Chen",
+      name: "Daniel",
       avatar: "/api/placeholder/32/32",
-      initials: "MC",
+      initials: "D",
     },
     category: "Announcement",
     timestamp: "2024-10-29T15:30:00Z",
   },
   {
     id: 3,
-    title: "Q4 Goals Overview",
+    title: "Hurricane Warning",
     content:
-      "Review of our key objectives for Q4 2024 and progress updates on our main initiatives. Click to see the detailed breakdown.",
+      "Berlin is currently experiencing tropical storm-force winds and heavy rain. Please take precautions to stay safe and dry.",
     author: {
-      name: "Alex Rivera",
+      name: "Daniel",
       avatar: "/api/placeholder/32/32",
-      initials: "AR",
+      initials: "D",
     },
-    category: "Goals",
+    category: "Announcement",
     timestamp: "2024-10-28T11:15:00Z",
   },
 ];

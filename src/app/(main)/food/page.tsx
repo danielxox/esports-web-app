@@ -34,7 +34,6 @@ interface Meal {
   name: string;
   type: string;
   description: string;
-  chef: string;
   dietary: string[];
   calories: number;
   protein: number;
@@ -57,7 +56,6 @@ const getMeals = (): Meal[] => [
     type: "lunch",
     description:
       "High-protein meal with grilled chicken, quinoa, and mixed vegetables",
-    chef: "Chef Alex",
     dietary: ["High Protein", "Balanced"],
     calories: 650,
     protein: 40,
@@ -70,7 +68,6 @@ const getMeals = (): Meal[] => [
     name: "Recovery Dinner",
     type: "dinner",
     description: "Salmon with sweet potato mash and steamed broccoli",
-    chef: "Chef Sam",
     dietary: ["Omega-3 Rich", "Anti-inflammatory"],
     calories: 550,
     protein: 35,
@@ -83,7 +80,6 @@ const getMeals = (): Meal[] => [
     name: "Energy Boost Breakfast",
     type: "breakfast",
     description: "Oatmeal with fresh berries, nuts, and a side of Greek yogurt",
-    chef: "Chef Jamie",
     dietary: ["High Fiber", "Antioxidants"],
     calories: 450,
     protein: 20,
@@ -96,7 +92,6 @@ const getMeals = (): Meal[] => [
     name: "Focus-Enhancing Lunch",
     type: "lunch",
     description: "Grilled tofu stir-fry with brown rice and mixed vegetables",
-    chef: "Chef Alex",
     dietary: ["Plant-based", "Brain Food"],
     calories: 550,
     protein: 25,
@@ -109,7 +104,6 @@ const getMeals = (): Meal[] => [
     name: "Pre-Tournament Breakfast",
     type: "breakfast",
     description: "Whole grain pancakes with fresh fruit and turkey bacon",
-    chef: "Chef Sam",
     dietary: ["Balanced", "Energy-boosting"],
     calories: 600,
     protein: 30,
@@ -239,7 +233,7 @@ function MealCard({ meal }: { meal: Meal }) {
         </Accordion>
       </CardContent>
       <CardFooter className="flex justify-between">
-        <div className="text-sm text-muted-foreground">Chef: {meal.chef}</div>
+        <div className="text-sm text-muted-foreground"></div>
         <div className="flex space-x-2">
           {meal.dietary.map((diet, index) => (
             <Badge key={index} variant="secondary">
