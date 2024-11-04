@@ -1,152 +1,204 @@
 import psycopg
 from psycopg import sql
 from datetime import datetime
-import json
-from typing import List, Dict, Any, Optional
 import logging
-
-# Configure logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+from typing import List, Dict, Any, Optional
+from dataclasses import asdict
 
 class LoLStatsDB:
     def __init__(self, connection_string: str):
         self.conn_string = connection_string
+        logging.basicConfig(level=logging.INFO, 
+                          format='%(asctime)s - %(levelname)s - %(message)s')
 
-    def safe_cast(self, value: Any, to_type: type, default: Optional[Any] = None):
-        """Safely cast a value to the given type, return default if casting fails."""
-        try:
-            return to_type(value)
-        except (ValueError, TypeError):
-            return default
-
-    def get_team_name_by_tag(self, team_tag: str) -> Optional[str]:
-        """Retrieve the team name based on the team tag. (Optional, can be removed if not needed)"""
-        # This function is now optional, consider removing if not needed elsewhere.
+    def insert_series_data(self, series_list: List):
+        """
+        Insert complete series data including all games, teams, players, and stats
+        """
         with psycopg.connect(self.conn_string) as conn:
             with conn.cursor() as cur:
-                cur.execute("SELECT team_name FROM teams WHERE team_tag = %s", (team_tag,))
-                result = cur.fetchone()
-                return result[0] if result else None
-
-    def insert_game_data(self, data: List[Dict[Any, Any]]):
-        player_game_stats_to_insert = []
-        with psycopg.connect(self.conn_string) as conn:
-            with conn.cursor() as cur:
-                for entry in data:
+                for series in series_list:
                     try:
-                        # Log the entry data for debugging
-                        logging.debug(f"Processing entry: {entry}")
-
-                        tournament_id = entry.get('tournament_id')
-                        tournament_name = entry.get('tournament_name')
-                        team_tag = entry.get('team_tag')
-                        platform_game_id = entry.get('platform_game_id')
-                        champion = entry.get('champion')
-
+                        series_dict = asdict(series)
+                        
                         # Insert tournament data
-                        if tournament_id and tournament_name:
-                            try:
-                                logging.debug(f"Inserting tournament data: {tournament_id}, {tournament_name}")
-                                cur.execute(""" 
-                                    INSERT INTO tournaments (tournament_id, tournament_name) 
-                                    VALUES (%s, %s) 
-                                    ON CONFLICT (tournament_id) DO UPDATE 
-                                    SET tournament_name = EXCLUDED.tournament_name
-                                """, (tournament_id, tournament_name))
-                            except Exception as e:
-                                logging.error(f"Failed to insert tournament data: {tournament_id}, {tournament_name} - {e}")
+                        self._insert_tournament(cur, {
+                            'tournament_id': series.tournament_id,
+                            'tournament_name': series.tournament_name
+                        })
 
-                        # Directly use team_tag as team_name
-                        if team_tag:
-                            try:
-                                logging.debug(f"Inserting team data: {team_tag}, {team_tag}")
-                                cur.execute(""" 
-                                    INSERT INTO teams (team_tag, team_name) 
-                                    VALUES (%s, %s) 
-                                    ON CONFLICT (team_tag) DO NOTHING 
-                                """, (team_tag, team_tag))
-                            except Exception as e:
-                                logging.error(f"Failed to insert team data: {team_tag} - {e}")
-                        else:
-                            logging.warning(f"Missing team_tag. Skipping this entry.")
-                            continue
+                        # Process each game in the series
+                        for game in series.games:
+                            self._process_game(cur, game, series.tournament_id)
 
-                        # Player data handling
-                        if 'summoner_name' in entry:
-                            player_id = entry.get('player_id')  # Ensure player_id is defined here
-                            player_game_stats_to_insert.append(( 
-                                platform_game_id, player_id, entry.get('champion'),
-                                self.safe_cast(entry.get('side'), int, 0), entry.get('auto_detect_role'),
-                                self.safe_cast(entry.get('win'), bool, False),
-                                entry.get('kills'), entry.get('deaths'), entry.get('assists'), 
-                                entry.get('kda'), entry.get('kill_participation'), 
-                                entry.get('damagePerMinute'), entry.get('damageShare'), 
-                                entry.get('wardsPlacedPerMinute'), entry.get('wardsClearedPerMinute'), 
-                                entry.get('controlWardsPurchased'), entry.get('creepScore'), 
-                                entry.get('creepScorePerMinute'), entry.get('goldEarned'), 
-                                entry.get('goldEarnedPerMinute'), entry.get('firstBloodKill'), 
-                                entry.get('firstBloodAssist'), entry.get('firstBloodVictim')
-                            ))
-
-                        # Champion data
-                        if champion:
-                            try:
-                                logging.debug(f"Inserting champion data: {champion}")
-                                cur.execute(""" 
-                                    INSERT INTO champions (champion_name, image_url) 
-                                    VALUES (%s, %s) 
-                                    ON CONFLICT (champion_name) DO UPDATE 
-                                    SET image_url = EXCLUDED.image_url 
-                                """, (champion, entry.get('championImageUrl')))
-                            except Exception as e:
-                                logging.error(f"Failed to insert champion data: {champion} - {e}")
-
-                        # Game data
-                        game_date = entry.get('game_date')
-                        if game_date is None:
-                            logging.warning(f"Missing game_date for platform_game_id {platform_game_id}. Skipping this entry.")
-                            continue
-
-                        try:
-                            logging.debug(f"Inserting game data: {platform_game_id}, {tournament_id}, {game_date}")
-                            cur.execute(""" 
-                                INSERT INTO games (platform_game_id, tournament_id, game_duration, game_date) 
-                                VALUES (%s, %s, %s, %s) 
-                                ON CONFLICT (platform_game_id) DO NOTHING 
-                            """, ( 
-                                platform_game_id, 
-                                tournament_id, 
-                                self.safe_cast(entry.get('game_duration'), int, 0), 
-                                game_date  
-                            ))
-                        except Exception as e:
-                            logging.error(f"Failed to insert game data: {platform_game_id} - {e}")
+                        conn.commit()
+                        logging.info(f"Successfully processed series {series.series_id}")
 
                     except Exception as e:
-                        logging.error(f"Error processing entry: {e}")
+                        logging.error(f"Error processing series {series.series_id}: {e}")
+                        conn.rollback()
 
-                # Batch insert player game stats if available
-                if player_game_stats_to_insert:
-                    try:
-                        logging.debug(f"Inserting player game stats for {len(player_game_stats_to_insert)} entries.")
-                        cur.executemany(""" 
-                            INSERT INTO player_game_stats ( 
-                                platform_game_id, player_id, champion_name, side, role, 
-                                win, kills, deaths, assists, kda, kill_participation, 
-                                damage_per_minute, damage_share, wards_placed_per_minute, 
-                                wards_cleared_per_minute, control_wards_purchased, 
-                                creep_score, creep_score_per_minute, gold_earned, 
-                                gold_earned_per_minute, first_blood_kill, 
-                                first_blood_assist, first_blood_victim 
-                            ) 
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 
-                                    %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) 
-                            ON CONFLICT (platform_game_id, player_id) DO UPDATE 
-                            SET champion_name = EXCLUDED.champion_name 
-                        """, player_game_stats_to_insert)
-                    except Exception as e:
-                        logging.error(f"Error inserting player game stats: {e}")
+    def _insert_tournament(self, cur: psycopg.Cursor, tournament: Dict):
+        """Insert tournament data with conflict handling"""
+        cur.execute("""
+            INSERT INTO tournaments (tournament_id, tournament_name)
+            VALUES (%s, %s)
+            ON CONFLICT (tournament_id) DO UPDATE
+            SET tournament_name = EXCLUDED.tournament_name
+        """, (tournament['tournament_id'], tournament['tournament_name']))
 
-                # Commit transaction
-                conn.commit()
-                logging.info("Transaction committed successfully.")
+    def _insert_team(self, cur: psycopg.Cursor, team_tag: str):
+        """Insert team data with conflict handling"""
+        cur.execute("""
+            INSERT INTO teams (team_tag, team_name)
+            VALUES (%s, %s)
+            ON CONFLICT (team_tag) DO UPDATE
+            SET team_name = EXCLUDED.team_name
+        """, (team_tag, team_tag))  # Using team_tag as name for simplicity
+
+    def _insert_champion(self, cur: psycopg.Cursor, champion_name: str, image_url: str):
+        """Insert champion data with conflict handling"""
+        cur.execute("""
+            INSERT INTO champions (champion_name, image_url)
+            VALUES (%s, %s)
+            ON CONFLICT (champion_name) DO UPDATE
+            SET image_url = EXCLUDED.image_url
+        """, (champion_name, image_url))
+
+    def _insert_ban(self, cur: psycopg.Cursor, ban, platform_game_id: str, team_tag: str):
+        """Insert ban data"""
+        cur.execute("""
+            INSERT INTO bans (platform_game_id, team_tag, champion_name, pick_turn)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (platform_game_id, team_tag, pick_turn) DO UPDATE
+            SET champion_name = EXCLUDED.champion_name
+        """, (platform_game_id, team_tag, ban.champion_name, ban.pick_turn))
+
+    def _insert_game(self, cur: psycopg.Cursor, game, tournament_id: str):
+        """Insert game data with conflict handling"""
+        cur.execute("""
+            INSERT INTO games (
+                platform_game_id, tournament_id, game_duration, 
+                winner_side, game_date
+            )
+            VALUES (%s, %s, %s, %s, NOW())
+            ON CONFLICT (platform_game_id) DO NOTHING
+            RETURNING platform_game_id
+        """, (
+            game.platform_game_id,
+            tournament_id,
+            game.duration,
+            game.winner_side
+        ))
+
+    def _insert_team_objectives(self, cur: psycopg.Cursor, objectives: Dict, platform_game_id: str, team_tag: str):
+        """Insert team objectives data"""
+        cur.execute("""
+            INSERT INTO team_objectives (
+                platform_game_id, team_tag, towers, dragons, 
+                barons, heralds
+            )
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (platform_game_id, team_tag) DO UPDATE
+            SET 
+                towers = EXCLUDED.towers,
+                dragons = EXCLUDED.dragons,
+                barons = EXCLUDED.barons,
+                heralds = EXCLUDED.heralds
+        """, (
+            platform_game_id,
+            team_tag,
+            objectives['towers'],
+            objectives['dragons'],
+            objectives['barons'],
+            objectives['heralds']
+        ))
+
+    def _insert_player_stats(self, cur: psycopg.Cursor, player, platform_game_id: str, team_tag: str, side: int):
+        """Insert player game statistics"""
+        stats = player.stats
+        
+        # First ensure the player exists in players table
+        cur.execute("""
+            INSERT INTO players (summoner_name, team_tag)
+            VALUES (%s, %s)
+            ON CONFLICT (summoner_name, team_tag) DO NOTHING
+        """, (player.summoner_name, team_tag))
+
+        # Then insert the game stats
+        cur.execute("""
+            INSERT INTO player_game_stats (
+                platform_game_id, summoner_name, team_tag, champion_name,
+                side, kills, deaths, assists, kda,
+                kill_participation, damage_per_minute, damage_share,
+                vision_score, cs_per_minute, gold_per_minute
+            )
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (platform_game_id, summoner_name) DO UPDATE
+            SET 
+                champion_name = EXCLUDED.champion_name,
+                kills = EXCLUDED.kills,
+                deaths = EXCLUDED.deaths,
+                assists = EXCLUDED.assists,
+                kda = EXCLUDED.kda,
+                kill_participation = EXCLUDED.kill_participation,
+                damage_per_minute = EXCLUDED.damage_per_minute,
+                damage_share = EXCLUDED.damage_share,
+                vision_score = EXCLUDED.vision_score,
+                cs_per_minute = EXCLUDED.cs_per_minute,
+                gold_per_minute = EXCLUDED.gold_per_minute
+        """, (
+            platform_game_id,
+            player.summoner_name,
+            team_tag,
+            player.champion_name,
+            side,
+            stats['kills'],
+            stats['deaths'],
+            stats['assists'],
+            stats['kda'],
+            stats['kill_participation'],
+            stats['damage_per_minute'],
+            stats['damage_share'],
+            stats['vision_score'],
+            stats['cs_per_minute'],
+            stats['gold_per_minute']
+        ))
+
+    def _process_game(self, cur: psycopg.Cursor, game, tournament_id: str):
+        """Process a complete game including teams, players, and objectives"""
+        # Insert base game data
+        self._insert_game(cur, game, tournament_id)
+        
+        # Process each team
+        for team in game.teams:
+            # Insert team data
+            self._insert_team(cur, team.team_tag)
+            
+            # Insert team objectives
+            self._insert_team_objectives(
+                cur, 
+                team.objectives,
+                game.platform_game_id,
+                team.team_tag
+            )
+            
+            # Process bans
+            for ban in team.bans:
+                # Insert champion data for banned champion
+                self._insert_champion(cur, ban.champion_name, ban.champion_image_url)
+                # Insert ban data
+                self._insert_ban(cur, ban, game.platform_game_id, team.team_tag)
+            
+            # Process players
+            for player in team.players:
+                # Insert champion data for picked champion
+                self._insert_champion(cur, player.champion_name, player.champion_image_url)
+                # Insert player stats
+                self._insert_player_stats(
+                    cur,
+                    player,
+                    game.platform_game_id,
+                    team.team_tag,
+                    team.side
+                )

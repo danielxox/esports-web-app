@@ -13,8 +13,6 @@ CONFIG = {
     "debug": True,
 }
 
-# Database connection
-db = LoLStatsDB("postgresql://postgres:sinja@localhost:5432/esports")
 
 # GraphQL Queries
 SERIES_INFO_QUERY = """
@@ -57,7 +55,6 @@ class Ban:
 class Player:
     summoner_name: str
     team_tag: str
-    role: str
     champion_name: str
     champion_image_url: str
     stats: Dict
@@ -206,7 +203,6 @@ class GameDataProcessor:
         return Player(
             summoner_name=summoner_name,
             team_tag=team_tag,
-            role=player_data["teamPosition"],
             champion_name=player_data["championName"],
             champion_image_url=champion_image_url,
             stats=stats
@@ -277,10 +273,14 @@ class GameDataProcessor:
         )
 
 async def main():
+    # Initialize components
     api_client = APIClient(CONFIG["api_key"])
     champion_data = ChampionData()
-    await champion_data.initialize()  # Initialize champion data
+    await champion_data.initialize()
     processor = GameDataProcessor(api_client, champion_data)
+    
+    # Initialize database connection
+    db = LoLStatsDB("postgresql://postgres:sinja@localhost:5432/esports")
     
     series_data = []
     for series_id in sys.argv[1:] or []:
@@ -288,15 +288,18 @@ async def main():
             if CONFIG["debug"]:
                 print(f"\nDEBUG: Processing series {series_id}")
             
+            # Get series info
             series_response = await api_client.post(SERIES_INFO_QUERY % series_id)
             series_info = series_response["data"]["series"]
             
+            # Get series state
             state_response = await api_client.post(
                 SERIES_STATE_QUERY % series_id,
                 endpoint="live-data-feed/series-state/graphql"
             )
             games_info = state_response["data"]["seriesState"]["games"]
             
+            # Process games
             games = []
             for game in games_info:
                 try:
@@ -316,12 +319,20 @@ async def main():
                         traceback.print_exc()
                     continue
             
-            series_data.append(Series(
+            # Create Series object and append to series_data
+            series = Series(
                 series_id=series_id,
                 tournament_id=series_info["tournament"]["id"],
                 tournament_name=series_info["tournament"]["name"],
                 games=games
-            ))
+            )
+            series_data.append(series)
+            
+            # Insert data into database after each series is processed
+            db.insert_series_data([series])
+            
+            if CONFIG["debug"]:
+                print(f"Successfully processed and inserted series {series_id}")
             
         except Exception as e:
             print(f"Error processing series {series_id}: {str(e)}")
@@ -330,9 +341,10 @@ async def main():
                 traceback.print_exc()
             continue
 
-    # Convert to JSON-friendly format and print
-    output = [asdict(series) for series in series_data]
-    print(json.dumps(output, indent=2))
+    # Output processed data as JSON (if needed)
+    if CONFIG["debug"]:
+        output = [asdict(series) for series in series_data]
+        print(json.dumps(output, indent=2))
 
 if __name__ == "__main__":
     asyncio.run(main())

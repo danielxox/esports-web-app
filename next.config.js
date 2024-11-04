@@ -5,6 +5,23 @@
 await import("./src/env.js");
 
 /** @type {import("next").NextConfig} */
-const config = {};
+const config = {
+  reactStrictMode: true,
+  swcMinify: true,
+
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        fs: false,
+        tls: false,
+        perf_hooks: false,
+        net: false,
+        crypto: false,
+        stream: false,
+      };
+    }
+    return config;
+  },
+};
 
 export default config;
