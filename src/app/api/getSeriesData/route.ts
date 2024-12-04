@@ -1,3 +1,4 @@
+// route.ts
 import { exec } from "child_process";
 import { promisify } from "util";
 import { NextResponse } from "next/server";
@@ -16,6 +17,8 @@ export async function POST(request: Request) {
       );
     }
 
+    console.log("Processing series:", seriesId);
+
     const pythonPath =
       "C:\\Users\\daniel\\AppData\\Local\\Programs\\Python\\Python313\\python.exe";
     const scriptPath = path.join(
@@ -27,35 +30,67 @@ export async function POST(request: Request) {
       "api.py",
     );
 
+    // Execute Python script
     const { stdout, stderr } = await execAsync(
-      `"${pythonPath}" "${scriptPath}" ${seriesId}`,
+      `"${pythonPath}" "${scriptPath}" "${seriesId}"`,
     );
 
-    // Log stdout and stderr separately for clarity
+    // Log debug output from Python
     if (stderr) {
-      // Only log as an error if it contains specific keywords indicating an actual error
-      if (
-        stderr.toLowerCase().includes("error") ||
-        stderr.toLowerCase().includes("exception")
-      ) {
-        console.error("Python script error:", stderr);
-        return NextResponse.json(
-          { error: "Failed to fetch games data", details: stderr.trim() },
-          { status: 500 },
-        );
-      }
-      // If there's no actual error, you can still log it for debugging purposes if needed
-      console.log("Python script output:", stderr);
+      console.log("Python debug output:", stderr);
     }
 
-    return NextResponse.json({
-      message: "Successfully fetched new games data",
-      output: stdout.trim(), // Only include stdout in the response
-    });
+    // If we got no stdout, that's an error
+    if (!stdout.trim()) {
+      console.error("No output from Python script");
+      return NextResponse.json(
+        { error: "No data received from script" },
+        { status: 500 },
+      );
+    }
+
+    try {
+      // Parse the JSON output
+      const gameData = JSON.parse(stdout.trim());
+
+      // Check if Python returned an error
+      if (gameData.error) {
+        console.error("Python script returned error:", gameData.error);
+        return NextResponse.json({ error: gameData.error }, { status: 500 });
+      }
+
+      // Return successful response
+      return NextResponse.json({
+        message: "Successfully fetched game data",
+        output: JSON.stringify(gameData),
+      });
+    } catch (parseError) {
+      console.error("Error parsing Python output:", {
+        error: parseError,
+        stdout: stdout,
+        stderr: stderr,
+      });
+
+      return NextResponse.json(
+        {
+          error: "Failed to parse game data",
+          details:
+            parseError instanceof Error ? parseError.message : "Unknown error",
+          debug: {
+            stdout: stdout.slice(0, 200), // First 200 chars of output
+            stderr: stderr.slice(0, 200), // First 200 chars of stderr
+          },
+        },
+        { status: 500 },
+      );
+    }
   } catch (error) {
     console.error("Error executing Python script:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: "Internal server error",
+        details: error instanceof Error ? error.message : String(error),
+      },
       { status: 500 },
     );
   }

@@ -54,7 +54,7 @@ export function AppSidebar() {
       <SidebarContent className="bg-zinc-950">
         <SidebarGroup>
           <SidebarGroupLabel className="text-xl font-semibold text-white">
-            Team Dashboard
+            Rogue Dashboard
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>

@@ -1,9 +1,10 @@
+import traceback
 import json
 import sys
 import asyncio
 import aiohttp
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 from LoLStatsDB import LoLStatsDB
 
@@ -12,7 +13,6 @@ CONFIG = {
     "logging": "on",
     "debug": True,
 }
-
 
 # GraphQL Queries
 SERIES_INFO_QUERY = """
@@ -42,6 +42,18 @@ SERIES_STATE_QUERY = """
         }
     }
 """
+
+def output_json(data: Dict[str, Any]) -> None:
+    """Safely output JSON data to stdout."""
+    try:
+        # Ensure we're writing to stdout
+        print(json.dumps(data, default=str), file=sys.stdout)
+        # Flush to ensure immediate output
+        sys.stdout.flush()
+    except Exception as e:
+        error_msg = {"error": f"Failed to serialize response: {str(e)}"}
+        print(json.dumps(error_msg), file=sys.stdout)
+        sys.stdout.flush()
 
 @dataclass
 class Ban:
@@ -73,6 +85,7 @@ class Game:
     duration: int
     winner_side: int
     teams: List[Team]
+    patch: str 
 
 @dataclass
 class Series:
@@ -80,7 +93,6 @@ class Series:
     tournament_id: str
     tournament_name: str
     games: List[Game]
-  
 
 class APIClient:
     def __init__(self, api_key: str):
@@ -94,9 +106,9 @@ class APIClient:
                 headers=self.headers
             ) as response:
                 if CONFIG["debug"]:
-                    print(f"DEBUG: GET {endpoint}")
-                    print(f"DEBUG: Status: {response.status}")
-                    print(f"DEBUG: Content-Type: {response.headers.get('Content-Type')}")
+                    print(f"DEBUG: GET {endpoint}", file=sys.stderr)
+                    print(f"DEBUG: Status: {response.status}", file=sys.stderr)
+                    print(f"DEBUG: Content-Type: {response.headers.get('Content-Type')}", file=sys.stderr)
                     
                 if response.status == 200:
                     text = await response.text()
@@ -104,8 +116,8 @@ class APIClient:
                         return json.loads(text)
                     except json.JSONDecodeError as e:
                         if CONFIG["debug"]:
-                            print(f"DEBUG: JSON decode error: {str(e)}")
-                            print(f"DEBUG: Response text: {text[:200]}...")
+                            print(f"DEBUG: JSON decode error: {str(e)}", file=sys.stderr)
+                            print(f"DEBUG: Response text: {text[:200]}...", file=sys.stderr)
                         raise Exception(f"Failed to parse response as JSON: {str(e)}")
                 else:
                     raise Exception(f"API request failed: {response.status}")
@@ -113,8 +125,8 @@ class APIClient:
     async def post(self, query: str, endpoint: str = "central-data/graphql") -> dict:
         async with aiohttp.ClientSession() as session:
             if CONFIG["debug"]:
-                print(f"DEBUG: POST {endpoint}")
-                print(f"DEBUG: Query: {query}")
+                print(f"DEBUG: POST {endpoint}", file=sys.stderr)
+                print(f"DEBUG: Query: {query}", file=sys.stderr)
                 
             async with session.post(
                 f"{self.base_url}/{endpoint}",
@@ -122,13 +134,12 @@ class APIClient:
                 json={"query": query}
             ) as response:
                 if CONFIG["debug"]:
-                    print(f"DEBUG: Status: {response.status}")
+                    print(f"DEBUG: Status: {response.status}", file=sys.stderr)
                 
                 data = await response.json()
                 if "errors" in data:
                     raise Exception(f"Query failed: {data['errors'][0]['message']}")
                 return data
-
 
 class ChampionData:
     def __init__(self):
@@ -186,7 +197,7 @@ class GameDataProcessor:
     async def process_player(self, player_data: dict, team_stats: dict, game_duration: int) -> Player:
         team_tag, summoner_name = self._split_summoner_name(player_data["riotIdGameName"])
         champion_image_url = self.champion_data.get_champion_image_url(player_data["championName"])
-        pass
+        
         stats = {
             "kills": player_data["kills"],
             "deaths": player_data["deaths"],
@@ -207,7 +218,6 @@ class GameDataProcessor:
             champion_image_url=champion_image_url,
             stats=stats
         )
-        
 
     @staticmethod
     def _split_summoner_name(name: str) -> tuple[str, str]:
@@ -217,7 +227,83 @@ class GameDataProcessor:
                 return tag, name
         return "", name
 
+    def format_game_data(self, processed_game, series_info) -> Optional[Dict[str, Any]]:
+        """Format a single game's data into the expected response structure."""
+        try:
+            blue_team = next((team for team in processed_game.teams if team.side == 100), None)
+            red_team = next((team for team in processed_game.teams if team.side == 200), None)
+            
+            if not blue_team or not red_team:
+                print(f"ERROR: Missing team data", file=sys.stderr)
+                return None
+
+            return {
+                "game": {
+                    "platformGameId": processed_game.platform_game_id,
+                    "tournament": series_info["tournament"]["name"],
+                    "gameDuration": processed_game.duration,
+                    "winnerSide": processed_game.winner_side,
+                    "gameDate": datetime.now().isoformat(),
+                    "blueTeam": blue_team.team_tag or "Blue Team",
+                    "redTeam": red_team.team_tag or "Red Team",
+                    "patch": processed_game.patch,
+                },
+                "players": [
+                    {
+                        "platformGameId": processed_game.platform_game_id,
+                        "summonerName": player.summoner_name,
+                        "teamTag": player.team_tag,
+                        "championName": player.champion_name,
+                        "side": team.side,
+                        "kills": player.stats["kills"],
+                        "deaths": player.stats["deaths"],
+                        "assists": player.stats["assists"],
+                        "kda": player.stats["kda"],
+                        "killParticipation": player.stats["kill_participation"],
+                        "damagePerMinute": player.stats["damage_per_minute"],
+                        "damageShare": player.stats["damage_share"],
+                        "visionScore": player.stats["vision_score"],
+                        "csPerMinute": player.stats["cs_per_minute"],
+                        "goldPerMinute": player.stats["gold_per_minute"],
+                        "role": "unknown"
+                    }
+                    for team in processed_game.teams
+                    for player in team.players
+                ],
+                "objectives": [
+                    {
+                        "platformGameId": processed_game.platform_game_id,
+                        "teamTag": team.team_tag,
+                        "towers": team.objectives["towers"],
+                        "dragons": team.objectives["dragons"],
+                        "barons": team.objectives["barons"],
+                        "heralds": team.objectives["heralds"]
+                    }
+                    for team in processed_game.teams
+                ],
+                "bans": [
+                    {
+                        "platformGameId": processed_game.platform_game_id,
+                        "teamTag": team.team_tag,
+                        "championName": ban.champion_name,
+                        "pickTurn": ban.pick_turn
+                    }
+                    for team in processed_game.teams
+                    for ban in team.bans
+                ]
+            }
+        except Exception as e:
+            print(f"ERROR in format_game_data: {str(e)}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+            return None
+
     async def process_game(self, game_data: dict, timeline_data: dict) -> Game:
+            # Extract patch version from game_data
+        full_patch = game_data.get("gameVersion", "unknown")
+        patch = ".".join(full_patch.split(".")[:2]) if full_patch != "unknown" else "unknown"
+        print(f"DEBUG: Game version from API: {full_patch}", file=sys.stderr)
+        print(f"DEBUG: Extracted patch: {patch}", file=sys.stderr)
+
         teams = {100: {"kills": 0, "damage": 0}, 200: {"kills": 0, "damage": 0}}
         
         # Calculate team totals
@@ -269,82 +355,82 @@ class GameDataProcessor:
             platform_game_id=f"{game_data['platformId']}_{game_data['gameId']}",
             duration=game_data["gameDuration"],
             winner_side=100 if game_data["teams"][0]["win"] else 200,
-            teams=processed_teams
+            teams=processed_teams,
+            patch=patch
         )
 
 async def main():
-    # Initialize components
-    api_client = APIClient(CONFIG["api_key"])
-    champion_data = ChampionData()
-    await champion_data.initialize()
-    processor = GameDataProcessor(api_client, champion_data)
-    
-    # Initialize database connection
-    db = LoLStatsDB("postgresql://postgres:sinja@localhost:5432/esports")
-    
-    series_data = []
-    for series_id in sys.argv[1:] or []:
+    try:
+        # Initialize components
+        print("Initializing components...", file=sys.stderr)
+        api_client = APIClient(CONFIG["api_key"])
+        champion_data = ChampionData()
+        await champion_data.initialize()
+        processor = GameDataProcessor(api_client, champion_data)
+        
+        # Initialize database connection
+        print("Connecting to database...", file=sys.stderr)
+        db = LoLStatsDB("postgresql://postgres:sinja@localhost:5432/esports")
+        
+        series_id = sys.argv[1] if len(sys.argv) > 1 else None
+        if not series_id:
+            output_json({"error": "No series ID provided"})
+            return
+
+        print(f"Processing series {series_id}...", file=sys.stderr)
+        
+        # Get series info
+        series_response = await api_client.post(SERIES_INFO_QUERY % series_id)
+        series_info = series_response["data"]["series"]
+        
+        # Get series state
+        state_response = await api_client.post(
+            SERIES_STATE_QUERY % series_id,
+            endpoint="live-data-feed/series-state/graphql"
+        )
+        games_info = state_response["data"]["seriesState"]["games"]
+        
+        if not games_info:
+            output_json({"error": "No games found in series"})
+            return
+        # Process first game only
+        game = games_info[0]
         try:
-            if CONFIG["debug"]:
-                print(f"\nDEBUG: Processing series {series_id}")
-            
-            # Get series info
-            series_response = await api_client.post(SERIES_INFO_QUERY % series_id)
-            series_info = series_response["data"]["series"]
-            
-            # Get series state
-            state_response = await api_client.post(
-                SERIES_STATE_QUERY % series_id,
-                endpoint="live-data-feed/series-state/graphql"
+            game_data = await api_client.get(
+                f"file-download/end-state/riot/series/{series_id}/games/{game['sequenceNumber']}/summary"
             )
-            games_info = state_response["data"]["seriesState"]["games"]
+            timeline_data = await api_client.get(
+                f"file-download/end-state/riot/series/{series_id}/games/{game['sequenceNumber']}/details"
+            )
             
-            # Process games
-            games = []
-            for game in games_info:
-                try:
-                    game_data = await api_client.get(
-                        f"file-download/end-state/riot/series/{series_id}/games/{game['sequenceNumber']}/summary"
-                    )
-                    timeline_data = await api_client.get(
-                        f"file-download/end-state/riot/series/{series_id}/games/{game['sequenceNumber']}/details"
-                    )
-                    
-                    processed_game = await processor.process_game(game_data, timeline_data)
-                    games.append(processed_game)
-                except Exception as e:
-                    print(f"Error processing game {game['id']}: {str(e)}")
-                    if CONFIG["debug"]:
-                        import traceback
-                        traceback.print_exc()
-                    continue
+            processed_game = await processor.process_game(game_data, timeline_data)
+            formatted_data = processor.format_game_data(processed_game, series_info)
             
-            # Create Series object and append to series_data
+            if formatted_data is None:
+                output_json({"error": "Failed to format game data"})
+                return
+                
+            # Store in database
             series = Series(
                 series_id=series_id,
                 tournament_id=series_info["tournament"]["id"],
                 tournament_name=series_info["tournament"]["name"],
-                games=games
+                games=[processed_game]
             )
-            series_data.append(series)
-            
-            # Insert data into database after each series is processed
             db.insert_series_data([series])
             
-            if CONFIG["debug"]:
-                print(f"Successfully processed and inserted series {series_id}")
+            # Output the formatted data
+            output_json(formatted_data)
             
         except Exception as e:
-            print(f"Error processing series {series_id}: {str(e)}")
-            if CONFIG["debug"]:
-                import traceback
-                traceback.print_exc()
-            continue
-
-    # Output processed data as JSON (if needed)
-    if CONFIG["debug"]:
-        output = [asdict(series) for series in series_data]
-        print(json.dumps(output, indent=2))
+            print(f"Error processing game: {str(e)}", file=sys.stderr)
+            traceback.print_exc(file=sys.stderr)
+            output_json({"error": f"Failed to process game: {str(e)}"})
+            
+    except Exception as e:
+        print(f"Fatal error: {str(e)}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        output_json({"error": f"Fatal error: {str(e)}"})
 
 if __name__ == "__main__":
     asyncio.run(main())

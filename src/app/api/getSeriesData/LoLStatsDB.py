@@ -79,16 +79,18 @@ class LoLStatsDB:
         cur.execute("""
             INSERT INTO games (
                 platform_game_id, tournament_id, game_duration, 
-                winner_side, game_date
+                winner_side, game_date, patch
             )
-            VALUES (%s, %s, %s, %s, NOW())
-            ON CONFLICT (platform_game_id) DO NOTHING
+            VALUES (%s, %s, %s, %s, NOW(), %s)
+            ON CONFLICT (platform_game_id) DO UPDATE
+            SET patch = EXCLUDED.patch
             RETURNING platform_game_id
         """, (
             game.platform_game_id,
             tournament_id,
             game.duration,
-            game.winner_side
+            game.winner_side,
+            game.patch
         ))
 
     def _insert_team_objectives(self, cur: psycopg.Cursor, objectives: Dict, platform_game_id: str, team_tag: str):

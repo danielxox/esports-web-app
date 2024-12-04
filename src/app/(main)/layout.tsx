@@ -8,7 +8,7 @@ import { dark } from "@clerk/themes";
 import { GeistSans } from "geist/font/sans";
 
 export const metadata: Metadata = {
-  title: "Esports App",
+  title: "Rogue App",
   description: "by Daniel",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };

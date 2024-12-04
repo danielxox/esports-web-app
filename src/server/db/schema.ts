@@ -30,6 +30,7 @@ export const games = pgTable("games", {
   gameDuration: integer("game_duration").notNull(),
   winnerSide: integer("winner_side").notNull(), // Consider using an enum for clarity
   gameDate: timestamp("game_date", { mode: "string" }).notNull(),
+  patch: text("patch").notNull().default("unknown"),
 });
 
 export const playerGameStats = pgTable(

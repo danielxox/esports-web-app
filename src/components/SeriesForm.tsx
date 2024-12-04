@@ -1,13 +1,26 @@
-// src/app/components/SeriesDataForm.tsx
-"use client"; // Indicate that this component will use client-side rendering
 import { useState } from "react";
+import { ScrimGame, useScrimStore } from "~/store/scrim-store";
+import { Loader2 } from "lucide-react";
+import { Input } from "~/components/ui/input";
+import { Button } from "~/components/ui/button";
+import { useToast } from "~/hooks/use-toast";
+import { SeriesDataResponse } from "~/types/api";
 
-const SeriesDataForm = () => {
+interface SeriesFormProps {
+  blockId: string;
+  className?: string;
+}
+
+const SeriesForm = ({ blockId, className = "" }: SeriesFormProps) => {
   const [seriesId, setSeriesId] = useState("");
-  const [responseMessage, setResponseMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { setBlockLoading, addGameToBlock } = useScrimStore();
+  const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    setBlockLoading(blockId, true);
 
     try {
       const res = await fetch("/api/getSeriesData", {
@@ -18,35 +31,70 @@ const SeriesDataForm = () => {
         body: JSON.stringify({ seriesId }),
       });
 
-      const data = await res.json();
+      const data: SeriesDataResponse = await res.json();
 
-      if (res.ok) {
-        setResponseMessage(data.message);
-      } else {
-        setResponseMessage(data.error || "An error occurred.");
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to fetch game data");
       }
+
+      const seriesData = JSON.parse(data.output);
+
+      // Format the game data to match ScrimGame interface
+      const gameData: ScrimGame = {
+        ...seriesData.game,
+        players: seriesData.players,
+        objectives: seriesData.objectives,
+        bans: seriesData.bans,
+      };
+
+      addGameToBlock(blockId, gameData);
+
+      toast({
+        title: "Success",
+        description: data.message || "Game data has been added successfully.",
+      });
+
+      setSeriesId("");
     } catch (error) {
-      console.error("Fetch error:", error);
-      setResponseMessage("Internal server error.");
+      console.error("Error:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+      setBlockLoading(blockId, false);
     }
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit}>
-        <label htmlFor="seriesId">Enter Series ID:</label>
-        <input
+    <form onSubmit={handleSubmit} className={`space-y-4 ${className}`}>
+      <div className="flex items-center gap-2">
+        <Input
           type="text"
-          id="seriesId"
           value={seriesId}
           onChange={(e) => setSeriesId(e.target.value)}
-          required
+          placeholder="Enter Series ID"
+          disabled={isLoading}
+          className="flex-1"
         />
-        <button type="submit">Fetch Data</button>
-      </form>
-      {responseMessage && <p>{responseMessage}</p>}
-    </div>
+        <Button type="submit" disabled={isLoading || !seriesId}>
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Adding...
+            </>
+          ) : (
+            "Add Game"
+          )}
+        </Button>
+      </div>
+    </form>
   );
 };
 
-export default SeriesDataForm;
+export default SeriesForm;

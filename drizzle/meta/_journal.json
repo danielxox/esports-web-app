@@ -15,6 +15,13 @@
       "when": 1730738051702,
       "tag": "0001_clear_tiger_shark",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1733183723132,
+      "tag": "0002_lethal_rockslide",
+      "breakpoints": true
     }
   ]
 }
