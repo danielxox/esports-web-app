@@ -7,11 +7,6 @@ export default function SignUpPage() {
         forceRedirectUrl="/home"
         fallbackRedirectUrl="/home"
         signInUrl="/sign-in"
-        appearance={{
-          elements: {
-            card: "shadow-xl",
-          },
-        }}
       />
     </div>
   );

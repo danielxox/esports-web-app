@@ -8,7 +8,7 @@ import SignInPage from "./sign-in/[[...sign-in]]/page";
 import { Sign } from "crypto";
 
 export const metadata: Metadata = {
-  title: "Esports App",
+  title: "Rogue App",
   description: "by Daniel",
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };

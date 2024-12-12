@@ -298,15 +298,15 @@ const GameDetails = ({ game, players, objectives, bans }: GameDetailsProps) => {
               <TableRow>
                 <TableHead className="w-[200px]">Blue Team</TableHead>
                 <TableHead className="w-16 text-center">K/D/A</TableHead>
-                <TableHead className="w-24 text-center">DMG%</TableHead>
-                <TableHead className="w-24 text-center">VS</TableHead>
+                <TableHead className="w-24 text-center">DPM</TableHead>
+                <TableHead className="w-24 text-center">GPM</TableHead>
                 <TableHead className="w-24 border-r text-center">
                   CS/min
                 </TableHead>
                 <TableHead className="w-[200px]">Red Team</TableHead>
                 <TableHead className="w-16 text-center">K/D/A</TableHead>
-                <TableHead className="w-24 text-center">DMG%</TableHead>
-                <TableHead className="w-24 text-center">VS</TableHead>
+                <TableHead className="w-24 text-center">DPM</TableHead>
+                <TableHead className="w-24 text-center">GPM</TableHead>
                 <TableHead className="w-24 text-center">CS/min</TableHead>
               </TableRow>
             </TableHeader>
@@ -356,14 +356,11 @@ const GameDetails = ({ game, players, objectives, bans }: GameDetailsProps) => {
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge variant="secondary">
-                        {bluePlayer
-                          ? Math.round(bluePlayer.damageShare * 100)
-                          : 0}
-                        %
+                        {Math.round(bluePlayer.damagePerMinute)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      {bluePlayer?.visionScore ?? 0}
+                      {Math.round(bluePlayer?.goldPerMinute)}
                     </TableCell>
                     <TableCell className="border-r text-center">
                       {bluePlayer?.csPerMinute?.toFixed(1) ?? "0.0"}
@@ -405,14 +402,11 @@ const GameDetails = ({ game, players, objectives, bans }: GameDetailsProps) => {
                     </TableCell>
                     <TableCell className="text-center">
                       <Badge variant="secondary">
-                        {redPlayer
-                          ? Math.round(redPlayer.damageShare * 100)
-                          : 0}
-                        %
+                        {Math.round(redPlayer.damagePerMinute)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-center">
-                      {redPlayer?.visionScore ?? 0}
+                      {Math.round(redPlayer?.goldPerMinute)}
                     </TableCell>
                     <TableCell className="text-center">
                       {redPlayer?.csPerMinute?.toFixed(1) ?? "0.0"}

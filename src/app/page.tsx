@@ -1,12 +1,22 @@
-import { redirect } from "next/navigation";
-import { auth } from "@clerk/nextjs/server";
+"use client";
 
-export default async function HomePage() {
-  const { userId } = await auth();
+import { useAuth } from "@clerk/nextjs";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-  if (!userId) {
-    redirect("/sign-in");
-  }
+export default function HomePage() {
+  const { isLoaded, userId } = useAuth();
+  const router = useRouter();
 
-  redirect("/home");
+  useEffect(() => {
+    if (isLoaded) {
+      if (!userId) {
+        router.push("/sign-in");
+      } else {
+        router.push("/home");
+      }
+    }
+  }, [isLoaded, userId, router]);
+
+  return <div>Loading...</div>;
 }

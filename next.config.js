@@ -9,6 +9,10 @@ const config = {
   reactStrictMode: true,
   swcMinify: true,
 
+  images: {
+    domains: ["ddragon.leagueoflegends.com"],
+  },
+
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.resolve.fallback = {

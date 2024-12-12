@@ -24,6 +24,7 @@ import {
 } from "~/components/ui/select";
 import ScrimBlock from "~/components/ScrimBlock";
 import { Team } from "~/types/team";
+import { useHasAccess } from "~/hooks/useHasAccess";
 
 interface NewScrimData {
   team2: Team | null;
@@ -42,6 +43,7 @@ const getTodayDate = (): string => {
 };
 
 export default function LeaguePage() {
+  const { hasAnalystAccess, getUserRoles } = useHasAccess();
   const {
     scrimBlocks,
     selectedPatch,
@@ -116,98 +118,100 @@ export default function LeaguePage() {
             </Select>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Scrim Block
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Scrim Block</DialogTitle>
-                <DialogDescription>
-                  Enter the details for the new scrim block.
-                </DialogDescription>
-              </DialogHeader>
+          {hasAnalystAccess() && (
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  New Scrim Block
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Create New Scrim Block</DialogTitle>
+                  <DialogDescription>
+                    Enter the details for the new scrim block.
+                  </DialogDescription>
+                </DialogHeader>
 
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label>Opponent Team</Label>
-                  <TeamSelector
-                    onTeamSelect={(team) =>
-                      setNewScrimData((prev) => ({
-                        ...prev,
-                        team2: team,
-                      }))
-                    }
-                    selectedTeam={newScrimData.team2}
-                    customTeams={customTeams}
-                    onCustomTeamAdd={addCustomTeam}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="date">Date</Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      value={newScrimData.date}
-                      onChange={(e) =>
+                    <Label>Opponent Team</Label>
+                    <TeamSelector
+                      onTeamSelect={(team) =>
                         setNewScrimData((prev) => ({
                           ...prev,
-                          date: e.target.value,
+                          team2: team,
                         }))
                       }
-                      required
+                      selectedTeam={newScrimData.team2}
+                      customTeams={customTeams}
+                      onCustomTeamAdd={addCustomTeam}
                     />
                   </div>
 
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="date">Date</Label>
+                      <Input
+                        id="date"
+                        type="date"
+                        value={newScrimData.date}
+                        onChange={(e) =>
+                          setNewScrimData((prev) => ({
+                            ...prev,
+                            date: e.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="time">Start Time</Label>
+                      <Input
+                        id="time"
+                        type="time"
+                        value={newScrimData.startTime}
+                        onChange={(e) =>
+                          setNewScrimData((prev) => ({
+                            ...prev,
+                            startTime: e.target.value,
+                          }))
+                        }
+                        required
+                      />
+                    </div>
+                  </div>
+
                   <div className="grid gap-2">
-                    <Label htmlFor="time">Start Time</Label>
+                    <Label htmlFor="notes">Notes (Optional)</Label>
                     <Input
-                      id="time"
-                      type="time"
-                      value={newScrimData.startTime}
+                      id="notes"
+                      value={newScrimData.notes}
                       onChange={(e) =>
                         setNewScrimData((prev) => ({
                           ...prev,
-                          startTime: e.target.value,
+                          notes: e.target.value,
                         }))
                       }
-                      required
                     />
                   </div>
                 </div>
 
-                <div className="grid gap-2">
-                  <Label htmlFor="notes">Notes (Optional)</Label>
-                  <Input
-                    id="notes"
-                    value={newScrimData.notes}
-                    onChange={(e) =>
-                      setNewScrimData((prev) => ({
-                        ...prev,
-                        notes: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <Button
-                onClick={handleCreateScrim}
-                disabled={
-                  !newScrimData.team2 ||
-                  !newScrimData.date ||
-                  !newScrimData.startTime
-                }
-              >
-                Create Scrim Block
-              </Button>
-            </DialogContent>
-          </Dialog>
+                <Button
+                  onClick={handleCreateScrim}
+                  disabled={
+                    !newScrimData.team2 ||
+                    !newScrimData.date ||
+                    !newScrimData.startTime
+                  }
+                >
+                  Create Scrim Block
+                </Button>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 

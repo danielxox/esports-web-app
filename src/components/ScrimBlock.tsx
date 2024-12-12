@@ -32,12 +32,14 @@ import {
 import { format } from "date-fns";
 import SeriesForm from "./SeriesForm";
 import GameDetails from "./GameDetails";
+import { useHasAccess } from "~/hooks/useHasAccess";
 
 interface ScrimBlockProps {
   blockId: string;
 }
 
 const ScrimBlock = ({ blockId }: ScrimBlockProps) => {
+  const { hasAnalystAccess } = useHasAccess();
   const { scrimBlocks, updateScrimBlock, deleteScrimBlock } = useScrimStore();
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -118,35 +120,37 @@ const ScrimBlock = ({ blockId }: ScrimBlockProps) => {
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              {isEditing ? (
+            {hasAnalystAccess() && (
+              <div className="flex items-center gap-2">
+                {isEditing ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditing(false);
+                      updateScrimBlock(block.id, block);
+                    }}
+                  >
+                    Save
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                  >
+                    Edit
+                  </Button>
+                )}
                 <Button
-                  variant="outline"
+                  variant="destructive"
                   size="sm"
-                  onClick={() => {
-                    setIsEditing(false);
-                    updateScrimBlock(block.id, block);
-                  }}
+                  onClick={() => setShowDeleteDialog(true)}
                 >
-                  Save
+                  Delete
                 </Button>
-              ) : (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditing(true)}
-                >
-                  Edit
-                </Button>
-              )}
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                Delete
-              </Button>
-            </div>
+              </div>
+            )}
           </div>
 
           <CollapsibleContent>
@@ -214,33 +218,37 @@ const ScrimBlock = ({ blockId }: ScrimBlockProps) => {
               )}
             </CardContent>
 
-            <CardFooter>
-              <SeriesForm blockId={block.id} className="w-full" />
-            </CardFooter>
+            {hasAnalystAccess() && (
+              <CardFooter>
+                <SeriesForm blockId={block.id} className="w-full" />
+              </CardFooter>
+            )}
           </CollapsibleContent>
         </Collapsible>
       </Card>
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete this
-              scrim block and remove all its data from the server.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {hasAnalystAccess() && (
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently delete this
+                scrim block and remove all its data from the server.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 };
