@@ -370,7 +370,7 @@ async def main():
         
         # Initialize database connection
         print("Connecting to database...", file=sys.stderr)
-        db = LoLStatsDB("postgresql://postgres:sinja@localhost:5432/esports")
+        db = LoLStatsDB("postgresql://postgres:daniel@localhost:5432/postgres")
         
         series_id = sys.argv[1] if len(sys.argv) > 1 else None
         if not series_id:

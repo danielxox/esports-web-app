@@ -11,19 +11,16 @@ export const useHasAccess = () => {
   const getUserRoles = (): UserRole[] => {
     // Check both 'role' and 'roles' in metadata
     const roles = user?.publicMetadata?.roles || user?.publicMetadata?.role;
-    console.log("Roles from metadata:", roles);
     return (Array.isArray(roles) ? roles : []) as UserRole[];
   };
 
   const hasRole = (role: UserRole): boolean => {
     const userRoles = getUserRoles();
-    console.log("Checking single role:", role, "User roles:", userRoles);
     return userRoles.includes(role);
   };
 
   const hasAnyRole = (targetRoles: UserRole[]): boolean => {
     const userRoles = getUserRoles();
-    console.log("Checking roles:", targetRoles, "User roles:", userRoles);
     return targetRoles.some((role) => userRoles.includes(role));
   };
 
