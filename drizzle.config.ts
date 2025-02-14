@@ -1,5 +1,9 @@
-import { type Config } from "drizzle-kit";
+import dotenv from "dotenv";
+dotenv.config();
 
+console.log("DATABASE_URL:", process.env.DATABASE_URL); // Debug the connection string
+
+import { type Config } from "drizzle-kit";
 import { env } from "~/env";
 
 export default {
