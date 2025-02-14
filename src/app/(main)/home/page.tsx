@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import { useState, useEffect } from "react";
 import {
   Card,
   CardContent,
@@ -7,146 +9,166 @@ import {
   CardTitle,
 } from "~/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "~/components/ui/avatar";
-import { Badge } from "~/components/ui/badge";
 import { ScrollArea } from "~/components/ui/scroll-area";
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "~/components/ui/carousel";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "~/components/ui/dialog";
+import { Loader2 } from "lucide-react";
 
-// Mock data - replace with your actual data source
-const updates = [
-  {
-    id: 1,
-    title: "New Content Day",
-    content: "It will be fun.",
-    author: {
-      name: "Jessie",
-      avatar: "/api/placeholder/32/32",
-      initials: "J",
-    },
-    category: "Content",
-    timestamp: "2024-10-30T09:00:00Z",
-  },
-  {
-    id: 2,
-    title: "Team Meeting Schedule Changes",
-    content: "Nico went missing. Meeting for tomorrow delayed.",
-    author: {
-      name: "Daniel",
-      avatar: "/api/placeholder/32/32",
-      initials: "D",
-    },
-    category: "Announcement",
-    timestamp: "2024-10-29T15:30:00Z",
-  },
-  {
-    id: 3,
-    title: "Hurricane Warning",
-    content:
-      "Berlin is currently experiencing tropical storm-force winds and heavy rain. Please take precautions to stay safe and dry.",
-    author: {
-      name: "Daniel",
-      avatar: "/api/placeholder/32/32",
-      initials: "D",
-    },
-    category: "Announcement",
-    timestamp: "2024-10-28T11:15:00Z",
-  },
-];
+// Define a type for news items
+type NewsItem = {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  author_avatar: string;
+  author_name: string;
+  created_at: string;
+};
 
 export default function HomePage() {
-  // Function to format dates
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [newTitle, setNewTitle] = useState("");
+  const [newContent, setNewContent] = useState("");
+  const [newCategory, setNewCategory] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [showDialog, setShowDialog] = useState(false);
+
+  useEffect(() => {
+    fetchNews();
+  }, []);
+
+  const fetchNews = async () => {
+    try {
+      const res = await fetch("/api/news");
+      const data = await res.json();
+      setNews(data);
+    } catch (error) {
+      console.error("Error fetching news:", error);
+    }
+  };
+
+  const handleAddNews = async () => {
+    if (!newTitle || !newContent) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch("/api/news", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: newTitle,
+          content: newContent,
+          category: newCategory,
+        }),
+      });
+
+      if (response.ok) {
+        const newItem = await response.json();
+        setNews([newItem, ...news]);
+        setShowDialog(false);
+        setNewTitle("");
+        setNewContent("");
+        setNewCategory("");
+      }
+    } catch (error) {
+      console.error("Failed to add news:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-10">
-      <div className="space-y-6">
-        {/* Header Section */}
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold">Team Updates</h1>
-            <span className="block text-muted-foreground">
-              Stay up to date with the latest news and announcements
-            </span>
-          </div>
-        </div>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-3xl font-bold">Team Updates</h1>
+        <Button onClick={() => setShowDialog(true)}>+ Add News</Button>
+      </div>
 
-        {/* Carousel Section */}
-        <Carousel className="my-4">
-          <CarouselContent>
-            <CarouselItem>
-              <div className="rounded-xl bg-zinc-800 p-6 text-white">
-                Next Scrim: vs G2 Esports - Meeting at 12:30
-              </div>
-            </CarouselItem>
-            <CarouselItem>
-              <div className="rounded-xl bg-zinc-800 p-6 text-white">
-                Tomorrows Lunch: Chicken with Rice!
-              </div>
-            </CarouselItem>
-            <CarouselItem>
-              <div className="rounded-xl bg-zinc-800 p-6 text-white">
-                Quote of the Day: Keep the Kitchen clean ;D
-              </div>
-            </CarouselItem>
-          </CarouselContent>
-          <CarouselPrevious />
-          <CarouselNext />
-        </Carousel>
+      {/* Add News Dialog */}
+      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add News</DialogTitle>
+          </DialogHeader>
+          <Input
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="Title"
+          />
+          <Textarea
+            value={newContent}
+            onChange={(e) => setNewContent(e.target.value)}
+            placeholder="Content"
+          />
+          <Input
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            placeholder="Category (optional)"
+          />
+          <DialogFooter>
+            <Button disabled={loading} onClick={handleAddNews}>
+              {loading ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                "Submit"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-        {/* Updates Feed */}
-        <ScrollArea className="h-[calc(100vh-200px)]">
-          <div className="space-y-6">
-            {updates.map((update) => (
+      {/* News Feed */}
+      <ScrollArea className="h-[calc(100vh-200px)]">
+        <div className="space-y-6">
+          {news.length === 0 ? (
+            <p className="text-center text-muted-foreground">
+              No news available.
+            </p>
+          ) : (
+            news.map((item) => (
               <Card
-                key={update.id}
+                key={item.id}
                 className="transition-colors hover:bg-accent/5"
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">
-                    <div className="space-y-1">
-                      <CardTitle className="text-xl">{update.title}</CardTitle>
-                      <CardDescription className="flex flex-row items-center gap-2">
-                        <span className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage
-                              src={update.author.avatar}
-                              alt={update.author.name}
-                            />
-                            <AvatarFallback>
-                              {update.author.initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{update.author.name}</span>
-                        </span>
+                    <div>
+                      <CardTitle className="text-xl">{item.title}</CardTitle>
+                      <CardDescription className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarImage
+                            src={item.author_avatar}
+                            alt={item.author_name}
+                          />
+                          <AvatarFallback>{item.author_name[0]}</AvatarFallback>
+                        </Avatar>
+                        <span>{item.author_name}</span>
                         <span>•</span>
-                        <span>{formatDate(update.timestamp)}</span>
+                        <span>
+                          {new Date(item.created_at).toLocaleString()}
+                        </span>
                       </CardDescription>
                     </div>
-                    <Badge variant="secondary">{update.category}</Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <span className="block text-muted-foreground">
-                    {update.content}
-                  </span>
+                  <p>{item.content}</p>
                 </CardContent>
               </Card>
-            ))}
-          </div>
-        </ScrollArea>
-      </div>
+            ))
+          )}
+        </div>
+      </ScrollArea>
     </div>
   );
 }

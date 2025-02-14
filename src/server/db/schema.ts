@@ -5,7 +5,21 @@ import {
   timestamp,
   primaryKey,
   doublePrecision,
+  uuid,
+  varchar,
 } from "drizzle-orm/pg-core";
+
+export const news = pgTable("news", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: varchar("title", { length: 255 }).notNull(),
+  content: text("content").notNull(),
+  author_id: uuid("author_id").notNull(),
+  author_name: varchar("author_name", { length: 100 }).notNull(),
+  author_avatar: varchar("author_avatar", { length: 255 }).notNull(),
+  category: varchar("category", { length: 50 }),
+  created_at: timestamp("created_at").defaultNow(),
+  updated_at: timestamp("updated_at").defaultNow(),
+});
 
 export const tournaments = pgTable("tournaments", {
   tournamentId: text("tournament_id").primaryKey().notNull(),
